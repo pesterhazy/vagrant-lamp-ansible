@@ -34,7 +34,7 @@ If something goes wrong, have a look at `ansible/playbook.yml`, which contains t
 
     vagrant provision
 
-After bringing up the virtual machine, open this url in your browser: http://localhost:9888/. You should be greeted by the `phpinfo()` output from public/index.php.
+After bringing up the virtual machine, open this url in your browser: http://localhost:8888/. You should be greeted by the `phpinfo()` output from public/index.php.
 
 When you're done playing with the VM, you can delete it:
 
