@@ -44,6 +44,9 @@
   - name: ensure apache is installed
     apt: name=apache2 state=present
 
+  - name: make sure apache is running
+    action: service name=apache2 state=started enabled=true
+
   - file: src=/etc/apache2/mods-available/rewrite.load dest=/etc/apache2/mods-enabled/rewrite.load state=link
     notify: restart apache
 
@@ -142,8 +145,6 @@
   - name: install phpmyadmin
     apt: name=phpmyadmin state=latest
   
-  - file: path=/etc/apache2/conf.d/phpmyadmin.conf state=absent
-
   # Assets compilation
 
   - name: add nodejs ppa
@@ -172,6 +173,13 @@
       - /var/cache/site/sessions
       - /var/cache/site/views
   
+  - name: ensure once more that 000-default.conf is deleted
+    file: path=/etc/apache2/sites-enabled/000-default.conf state=absent
+    notify: restart apache
+
+  - name: ensure that phpmyadmin's stock config is deleted
+    file: path=/etc/apache2/conf.d/phpmyadmin.conf state=absent
+
   # - name: install npm packages
   #   command: chdir=/var/www/site npm install --no-bin-links
   #   register: out
