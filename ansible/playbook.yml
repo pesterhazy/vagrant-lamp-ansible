@@ -1,0 +1,201 @@
+---
+- hosts: all
+  sudo: true
+  tasks:
+
+  - name: create /var/www
+    file: path=/var/www state=directory
+
+  - name: create site symlink
+    file: src=/vagrant dest=/var/www/site state=link
+    notify: restart apache
+
+  - name: install misc packages
+    apt: name={{ item }} state=latest
+    with_items:
+      - rubygems
+      - git-core
+      - curl
+      - unzip
+      - vim
+
+  - name: install language packs for locale support
+    apt: name={{ item }} state=latest
+    with_items:
+      - language-pack-de-base
+      - language-pack-es-base
+
+  # memcached
+
+  - name: ensure memcached is installed
+    apt: name=memcached state=latest
+
+
+  # beanstalk
+
+  - name: install beanstalk for local queues
+    apt: name=beanstalkd state=present
+  - name: set up beanstalk
+    copy: src=/vagrant/ansible/templates/beanstalkd dest=/etc/default/beanstalkd
+    notify: restart beanstalkd
+
+  # Apache2 
+
+  - name: ensure apache is installed
+    apt: name=apache2 state=present
+
+  - file: src=/etc/apache2/mods-available/rewrite.load dest=/etc/apache2/mods-enabled/rewrite.load state=link
+    notify: restart apache
+
+  - file: src=/etc/apache2/mods-available/headers.load dest=/etc/apache2/mods-enabled/headers.load state=link
+    notify: restart apache
+
+  - copy: src=/vagrant/ansible/templates/site.conf dest=/etc/apache2/sites-enabled/site.conf
+    notify: restart apache
+
+  - file: path=/etc/apache2/sites-enabled/000-default.conf state=absent
+    notify: restart apache
+
+  - file: path=/etc/apache2/conf.d state=directory
+
+  - copy: src=/vagrant/ansible/templates/fqdn.conf dest=/etc/apache2/conf.d/fqdn.conf
+    notify: restart apache
+
+  - copy: src=/vagrant/ansible/templates/nosendfile.conf dest=/etc/apache2/conf.d/nosendfile.conf
+    notify: restart apache
+
+  # MySQL
+
+  - name: install MySQL
+    apt: name={{ item }} state=latest
+    with_items:
+      - mysql-server
+      - mysql-client
+      - python-mysqldb
+
+  - name: add mysql user
+    mysql_user: name=vagrant
+                host={{ item }}
+                password=vagrant priv=*.*:ALL,GRANT
+                login_user=root
+                login_password=
+    with_items:
+      - "{{ ansible_hostname }}"
+      - 127.0.0.1
+      - ::1
+      - localhost
+
+  - name: create mysql databases
+    mysql_db: name={{ item }}
+              state=present
+    with_items:
+      - site_development
+      - site_development_stats
+      - site_testing
+      - site_testing_stats
+
+  - file: path=/etc/mysql/conf.d state=directory
+  - name: Set MySQL number of connections
+    copy: src=/vagrant/ansible/templates/max_connections.cnf dest=/etc/mysql/conf.d/max_connections.cnf
+    notify: restart mysql
+  - name: Install mysql command line client configuration file
+    copy: src=/vagrant/ansible/templates/my.cnf dest=/home/vagrant/.my.cnf owner=vagrant group=vagrant
+
+  # PHP
+
+  - name: add php5 ppa
+    apt_repository: repo='ppa:ondrej/php5'
+
+  - name: install PHP5 packages
+    apt: name={{ item }} state=latest
+    with_items:
+      - php5
+      - libapache2-mod-php5
+      - php5-cli
+      - php5-dev
+      - php5-mysql
+      - php-pear
+      - php5-mcrypt
+      - php5-gd
+      - php5-curl
+      - php5-xdebug
+      - php5-memcache
+      - php5-memcached
+      - php5-readline
+      - php5-sqlite
+
+  - file: path=/etc/php5/conf.d state=directory
+
+  - copy: src=/vagrant/ansible/templates/php-site.ini dest=/etc/php5/conf.d/php-site.ini
+    notify: restart apache
+
+  - name: symlink common php configuration for cli handler
+    file: src=/etc/php5/conf.d/php-site.ini dest=/etc/php5/cli/conf.d/php-site.ini state=link
+    notify: restart apache
+
+  - name: symlink common php configuration for apache2 handler
+    file: src=/etc/php5/conf.d/php-site.ini dest=/etc/php5/apache2/conf.d/php-site.ini state=link
+    notify: restart apache
+
+  # phpmyadmin
+
+  - name: install phpmyadmin
+    apt: name=phpmyadmin state=latest
+  
+  - file: path=/etc/apache2/conf.d/phpmyadmin.conf state=absent
+
+  # Assets compilation
+
+  - name: add nodejs ppa
+    apt_repository: repo='ppa:chris-lea/node.js'
+
+  - name: install nodejs
+    apt: name=nodejs state=latest
+
+  - name: install rubygems
+    apt: name=rubygems state=present
+
+  - name: install compass
+    command: gem install compass sass chunky_png fssm creates=/usr/local/bin/compass
+
+  # Set up site
+  #
+
+  - file: src=/vagrant dest=/var/www/site state=link
+  - file: path={{ item }} owner=vagrant group=vagrant mode=0777 state=directory
+    with_items:
+      - /var/cache/site
+      - /var/cache/site/cache
+      - /var/cache/site/clockwork
+      - /var/cache/site/logs
+      - /var/cache/site/meta
+      - /var/cache/site/sessions
+      - /var/cache/site/views
+  
+  # - name: install npm packages
+  #   command: chdir=/var/www/site npm install --no-bin-links
+  #   register: out
+  #   changed_when: "out.stdout.strip() != ''"
+  #   sudo: false
+
+  # - name: install composer packages
+  #   command: chdir=/var/www/site bash pocket install
+  #   register: out
+  #   changed_when: "'Nothing to install or update' not in out.stdout"
+  #   sudo: false
+
+  # - name: set up artisan queue listen
+  #   copy: src=/vagrant/ansible/templates/supervisor-queue-listen.conf dest=/etc/supervisor/conf.d/supervisor-queue-listen.conf
+  #   notify: reload queue listener
+
+  # Common stuff
+
+  handlers:
+    - name: restart apache
+      action: service name=apache2 state=restarted
+    - name: restart mysql
+      action: service name=mysql state=restarted
+    # - name: reload queue listener
+    #   action: supervisorctl name=queue_listen state=restarted
+    - name: restart beanstalkd
+      action: service name=beanstalkd state=restarted
