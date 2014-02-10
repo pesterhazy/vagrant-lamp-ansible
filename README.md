@@ -11,9 +11,11 @@ This is a simple recipe for *vagrant* that sets up an Ubuntu virtual machine inc
 - memcached
 - asset comilation tools
     - compass
-    - node.js (for asset compilation)
+    - node.js
 
-This recipe uses the excellent `ansible` as the provisioning tool for *vagrant*. It does not use vagrant's `ansible` plugin, however, because it controls the VM from the outside. Instead, this recipe runs `ansible` in its "local" mode (using `-c local`). See `ansible/provision.sh` for details.
+This recipe uses the excellent `ansible` as a provisioning tool for *vagrant*. It does not use vagrant's `ansible` plugin, however, because that plugin controls the VM via SSH from the outside (which won't work easily on Windows hosts).
+
+Instead, this recipe runs `ansible` in its "local" mode (using `-c local`). As a result, you don't have to install ansible on the host machine. See `ansible/provision.sh` for details.
 
 To get started, install
 
