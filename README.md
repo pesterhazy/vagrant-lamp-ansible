@@ -1,7 +1,11 @@
 vagrant-lamp-ansible
 ----------------------
 
-This is a simple recipe for *vagrant* that sets up an Ubuntu virtual machine including common daemons and tools required for PHP web development. Specifically it automatically installs:
+This is a simple recipe for *vagrant* that sets up an Ubuntu virtual machine including common daemons and tools required for PHP web development.
+
+You might also be interested in this presentation, which extols the virtues of using Vagrant for PHP development: http://loevborg.karmafish.net/laravel4-pocket/#/laravel-in-your-pocket
+
+Specifically this recipe automatically installs:
 
 - Ubuntu 12.04 (precise), 64bit version
 - PHP 5.5
